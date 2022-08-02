@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 /**
  * @title ERC20Basic
- * @dev Simpler version of ERC20 interface, see see https://github.com/ethereum/EIPs/issues/179
+ * @dev Fundamental function set for ERC20 interface. See also https://github.com/ethereum/EIPs/issues/179
  */
 
 contract ERC20Basic {
