@@ -11,7 +11,7 @@ contract BurnableToken is BasicToken {
   event Burn(address indexed burner, uint256 value);
 
   /**
-   * @dev Burns a specific amount of tokens.
+   * @dev Burns a contractually specified amount of tokens.
    * @param _value The amount of token to be burned.
    */
   function burn(uint256 _value) public {
