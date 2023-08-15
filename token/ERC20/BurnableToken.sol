@@ -5,6 +5,7 @@ import "./BasicToken.sol";
 /**
  * @title Burnable Token
  * @dev Token that can be irreversibly burned (destroyed).
+ * @dev It's irreversible.
  */
 contract BurnableToken is BasicToken {
 
