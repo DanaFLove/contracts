@@ -1,0 +1,43 @@
+// Simplified JavaScript Example
+const ethers = require('ethers');
+const { poseidon } = require('circomlibjs');
+
+// Function to derive babyJubJub key from Ethereum signature
+async function deriveBabyJubJubKey(ethersProvider, zkMultisigAddress) {
+  const message = await getKDFMSGToSign(zkMultisigAddress);
+  const signature = await ethersProvider.getSigner().signTypedData(message);
+  const privateKey = ethers.utils.keccak256(ethers.utils.keccak256(signature));
+  return privateKey;
+}
+
+// Function to generate a proposal challenge
+function generateChallenge(proposalContent, salt) {
+  const proposalId = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+    ['address', 'uint256', 'bytes', 'uint256'],
+    [proposalContent.target, proposalContent.value, proposalContent.data, salt]
+  ));
+  const challenge = poseidon([ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+    ['uint256', 'address', 'uint256'],
+    [ethers.provider.chainId, zkMultisigAddress, proposalId]
+  ))]);
+  return challenge;
+}
+
+// Example usage
+async function main() {
+  const zkMultisigAddress = '0x...'; // Address of the ZK multisig contract
+  const proposalContent = {
+    target: '0x...', // Target contract address
+    value: 0, // Ether value
+    data: '0x...' // Proposal data
+  };
+  const salt = 123; // Salt for proposal ID generation
+
+  const babyJubJubPrivateKey = await deriveBabyJubJubKey(ethers.getDefaultProvider(), zkMultisigAddress);
+  const challenge = generateChallenge(proposalContent, salt);
+
+  // Generate ZK proof using Circom circuits (not shown here)
+  // ...
+}
+
+main().catch((error) => console.error(error));
