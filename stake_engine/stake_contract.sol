@@ -4,13 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IERC20 {
-    function transfer(address to, uint256 amount) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-}
-
 interface IStaking {
     function stake(uint256 amount) external;
     function unstake(uint256 amount) external;
@@ -18,7 +11,31 @@ interface IStaking {
     function claimRewards() external;
 }
 
-contract TokenStakingSplitter {
+contract TokenStakingSplitter is ReentrancyGuard {
+    address public contractOwner;
+    IERC20 public token;
+    
+    mapping(address => uint256) public userDeposits;
+    uint256 public tokenOwnerSplitRate; // 0-100
+    address public stakingContract;
+    bool public isStakable;
+
+    event TokensReceived(address from, uint256 amount);
+    event RewardsSplit(address tokenOwner, uint256 tokenOwnerAmount, uint256 contractOwnerAmount);
+    event SplitRateUpdated(uint256 newRate);
+
+    constructor(address _tokenAddress, uint256 _initialSplitRate) {
+        contractOwner = msg.sender;
+        token = IERC20(_tokenAddress);
+        tokenOwnerSplitRate = _initialSplitRate;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == contractOwner, "Only contract owner can call this");
+        _;
+    }
+
+contract TokenStakingSplitter is ReentrancyGuard {
     address public contractOwner;
     IERC20 public token;
     
