@@ -35,88 +35,53 @@ contract TokenStakingSplitter is ReentrancyGuard {
         _;
     }
 
-contract TokenStakingSplitter is ReentrancyGuard {
-    address public contractOwner;
-    IERC20 public token;
-    
-    // Mapping to track user deposits
-    mapping(address => uint256) public userDeposits;
-    // Variable split rate (percentage to token owner, rest goes to contract owner)
-    uint256 public tokenOwnerSplitRate; // 0-100
-    
-    // Staking contract address (if token supports staking)
-    address public stakingContract;
-    bool public isStakable;
-
-    event TokensReceived(address from, uint256 amount);
-    event RewardsSplit(address tokenOwner, uint256 tokenOwnerAmount, uint256 contractOwnerAmount);
-    event SplitRateUpdated(uint256 newRate);
-
-    constructor(address _tokenAddress, uint256 _initialSplitRate) {
-        contractOwner = msg.sender;
-        token = IERC20(_tokenAddress);
-        tokenOwnerSplitRate = _initialSplitRate;
-        // Staking contract address would need to be set separately if applicable
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Only contract owner can call this");
-        _;
-    }
-
-    // Function to receive tokens
-    function depositTokens(uint256 _amount) external {
+    // Function to receive tokens with reentrancy guard
+    function depositTokens(uint256 _amount) external nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
         
-        // Transfer tokens from sender to contract
         require(token.transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
         
         userDeposits[msg.sender] += _amount;
         emit TokensReceived(msg.sender, _amount);
 
-        // If token is stakable and staking contract is set, stake the tokens
         if (isStakable && stakingContract != address(0)) {
             token.approve(stakingContract, _amount);
             IStaking(stakingContract).stake(_amount);
         }
     }
 
-    // Set staking contract address and enable staking
+    // Set staking contract address and verify it
     function setStakingContract(address _stakingContract) external onlyOwner {
         stakingContract = _stakingContract;
-        isStakable = true;
+        isStakable = checkStakable();
     }
 
-    // Update split rate
     function updateSplitRate(uint256 _newRate) external onlyOwner {
         require(_newRate <= 100, "Rate must be between 0 and 100");
         tokenOwnerSplitRate = _newRate;
         emit SplitRateUpdated(_newRate);
     }
 
-    // Check available rewards and split them
-    function distributeRewards() external {
+    // Distribute rewards with reentrancy guard
+    function distributeRewards() external nonReentrant {
         require(isStakable && stakingContract != address(0), "Staking not enabled");
         
         uint256 rewards = IStaking(stakingContract).getRewards();
         require(rewards > 0, "No rewards available");
 
-        // Claim rewards from staking contract
         IStaking(stakingContract).claimRewards();
 
-        // Calculate split
         uint256 tokenOwnerShare = (rewards * tokenOwnerSplitRate) / 100;
         uint256 contractOwnerShare = rewards - tokenOwnerShare;
 
-        // Distribute rewards
         require(token.transfer(msg.sender, tokenOwnerShare), "Token owner transfer failed");
         require(token.transfer(contractOwner, contractOwnerShare), "Contract owner transfer failed");
 
         emit RewardsSplit(msg.sender, tokenOwnerShare, contractOwnerShare);
     }
 
-    // Withdraw original tokens (unstake if staked)
-    function withdrawTokens(uint256 _amount) external {
+    // Withdraw tokens with reentrancy guard
+    function withdrawTokens(uint256 _amount) external nonReentrant {
         require(userDeposits[msg.sender] >= _amount, "Insufficient balance");
 
         userDeposits[msg.sender] -= _amount;
@@ -128,10 +93,32 @@ contract TokenStakingSplitter is ReentrancyGuard {
         require(token.transfer(msg.sender, _amount), "Token transfer failed");
     }
 
-    // Check if token can be staked (work to be done)
+    // Enhanced function to check if token can be staked
     function checkStakable() public view returns (bool) {
-        return isStakable;
+        if (stakingContract == address(0)) {
+            return false;
+        }
+
+        // Try to verify if the staking contract is valid
+        try IStaking(stakingContract).isStakingContract() returns (bool isValid) {
+            if (!isValid) {
+                return false;
+            }
+        } catch {
+            return false; // If the call fails, assume it's not stakable
+        }
+
+        // Check if this contract has sufficient allowance to interact with staking
+        uint256 allowance = token.allowance(address(this), stakingContract);
+        if (allowance == 0) {
+            return false;
+        }
+
+        // Check if staking contract has a valid getRewards function
+        try IStaking(stakingContract).getRewards() returns (uint256) {
+            return true;
+        } catch {
+            return false;
+        }
     }
 }
-
-
