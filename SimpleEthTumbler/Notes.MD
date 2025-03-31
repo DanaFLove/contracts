@@ -60,3 +60,30 @@ Security: This still needs auditing for re-entrancy, overflow, or zk-SNARK misus
 
 True Randomness: Replace the pseudo-random delay with Chainlink VRF or a commit-reveal scheme for better security.
 
+
+Notes from 31MAR:
+Reducing Gas Costs
+Gas costs in Ethereum are driven by computation, storage operations, and external calls. zk-SNARK verification is inherently expensive, but we can optimize other parts of the contract. Here’s how:
+Minimize Storage Updates:
+Storage writes (e.g., updating mappings) are costly (20,000 gas for a new slot, 5,000 for updates). Reduce unnecessary writes by batching or avoiding redundant updates.
+
+Example: Only update participantCount when necessary, not on every deposit.
+
+Use Struct Packing:
+Pack smaller variables (e.g., uint256 and bool) into fewer storage slots by using smaller types (e.g., uint32 for block numbers if safe) to reduce SSTORE costs.
+
+Avoid Loops and Arrays:
+The participants array grows with each deposit, and iterating it (not currently done, but a potential future feature) would increase gas linearly. Replace it with a more efficient tracking mechanism or remove it if not critical.
+
+Optimize zk-SNARK Verification:
+
+The verifier contract’s gas cost depends on its implementation (e.g., pairing checks). We can’t modify it here, but using a precompiled contract or an optimized verifier (like those from Tornado Cash) could help.
+
+Alternatively, move some logic off-chain (e.g., batch withdrawals via a relayer).
+
+Reduce Event Emissions:
+Events cost ~375 gas per topic and 8 gas per byte of data. Limit their use or simplify them (e.g., remove indexed fields if not needed).
+
+Use calldata Efficiently:
+zk-SNARK proof parameters (a, b, c, input) are already in calldata, which is cheaper than memory. Ensure no unnecessary copying occurs.
+
