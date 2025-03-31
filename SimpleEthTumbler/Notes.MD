@@ -87,3 +87,34 @@ Events cost ~375 gas per topic and 8 gas per byte of data. Limit their use or si
 Use calldata Efficiently:
 zk-SNARK proof parameters (a, b, c, input) are already in calldata, which is cheaper than memory. Ensure no unnecessary copying occurs.
 
+Changes and Explanations
+Gas Cost Reductions
+Immutable Verifier:
+Made zkVerifier immutable (set at construction, never changed), saving ~5,000 gas per write avoided.
+
+Smaller Data Types:
+Changed participantCount, minParticipants, depositBlock, and delayBlocks to uint32 (4 bytes vs. 32 for uint256). uint32 maxes out at ~4.29 billion, sufficient for block numbers (Ethereum won’t hit this for decades) and MAX_DELAY_BLOCKS (100).
+
+Simplified Events:
+Removed indexed fields and extra data (e.g., amount, sender). Deposited now only logs commitment, and Withdrawn only logs recipient, cutting ~375 gas per indexed field.
+
+Avoided Array:
+Removed participants array, as it wasn’t used in this version. If needed later, a mapping-based solution would be cheaper than array growth.
+
+Conditional Counter:
+Only increment participantCount if below uint32.max, avoiding unnecessary writes in edge cases.
+
+Reentrancy Mitigation
+Withdraw:
+Moved state updates (dep.withdrawn = true, nullifiers[nullifierHash] = true) before the ETH transfer. If recipient is a malicious contract, it can’t reenter and withdraw again before the state is finalized.
+
+Emergency Withdraw:
+Similarly, updated dep.withdrawn = true before the ETH transfer, preventing reentrancy.
+
+Overflow Safety
+Type Safety:
+Used uint32 with explicit casting (uint32(block.number)) where safe, leveraging Solidity 0.8.0’s built-in overflow checks for uint256 elsewhere (e.g., block.number + dep.delayBlocks).
+
+Block Number:
+uint32 for depositBlock and delayBlocks is safe: Ethereum’s block number grows by 1 every 15 seconds, so 2^32 (136 years) is far beyond practical concern.
+
