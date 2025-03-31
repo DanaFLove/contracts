@@ -40,4 +40,6 @@ contract SimpleEthTumbler {
 
     // Fallback to receive ETH
     receive() external payable {}
+
+// Note that no emergency withdrawal exists here.
 }
